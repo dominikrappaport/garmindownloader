@@ -9,8 +9,10 @@ from getpass import getpass
 
 import garth
 
+GARMIN_TOKEN_DIR = "~/.garth"
+
 email = input("Enter email address: ")
 password = getpass("Enter password: ")
 garth.login(email, password)
 
-garth.save("~/.garth")
+garth.save(GARMIN_TOKEN_DIR)
