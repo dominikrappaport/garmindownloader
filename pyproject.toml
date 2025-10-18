@@ -8,3 +8,8 @@ dependencies = [
     "garminconnect>=0.2.30",
     "garth>=0.5.17",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
