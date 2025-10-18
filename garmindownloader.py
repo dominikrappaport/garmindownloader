@@ -26,11 +26,22 @@ DATATYPE_TO_FUNCTION = {
 
 
 class GarmindownloaderException(Exception):
+    """Exception raised for errors in the Garmin downloader module."""
+
     pass
 
 
 def create_api_session():
-    """Create a Garmin Connect API session."""
+    """
+    Create a Garmin Connect API session.
+
+    Attempts to create and authenticate a Garmin Connect API session using
+    stored authentication tokens. The token location is determined by the
+    GARMINTOKENS environment variable, or defaults to ~/.garth if not set.
+
+    :return: Authenticated Garmin Connect API object
+    :raises GarmindownloaderException: If authentication fails or HTTP errors occur
+    """
     token_store = os.getenv(GARMIN_TOKEN_ENV) or GARMIN_TOKEN_DIR
 
     try:
@@ -76,6 +87,15 @@ def parse_months(month_str):
 
 
 def parse_command_line_args():
+    """
+    Parse and validate command line arguments.
+
+    Parses command line arguments for year, month(s), and data type(s) to download.
+    Validates that all datatypes are valid choices (bb or hr).
+
+    :return: Parsed command line arguments with year, month list, and datatype list
+    :raises SystemExit: If invalid arguments are provided (via argparse.ArgumentParser.error)
+    """
     parser = argparse.ArgumentParser(description="Process year and month parameters.")
     parser.add_argument("year", type=int, help="The year (e.g., 2024).")
     parser.add_argument(
@@ -102,6 +122,24 @@ def parse_command_line_args():
 
 
 def fetch_bb_data(api, year, month):
+    """
+    Fetch Body Battery data from Garmin Connect for a specific month.
+
+    Downloads Body Battery data for all days in the specified month, calculating
+    daily statistics including charged/drained values and min/max readings.
+
+    :param api: Authenticated Garmin Connect API object
+    :param year: The year to fetch data for
+    :param month: The month to fetch data for (1-12)
+    :return: Tuple containing list of Body Battery data dictionaries and output filename
+
+    Each dictionary in the results list contains:
+        - date: Date of the reading
+        - charged: Amount of Body Battery charged
+        - drained: Amount of Body Battery drained
+        - max: Maximum Body Battery value for the day (or None if no data)
+        - min: Minimum Body Battery value for the day (or None if no data)
+    """
     filename = f"bb{year}{month:02d}.csv"
     results = []
     date_list = get_days_of_month(month, year)
@@ -135,6 +173,21 @@ def fetch_bb_data(api, year, month):
 
 
 def fetch_hr_data(api, year, month):
+    """
+    Fetch Heart Rate data from Garmin Connect for a specific month.
+
+    Downloads all heart rate measurements for each day in the specified month,
+    including timestamp and heart rate value for each reading.
+
+    :param api: Authenticated Garmin Connect API object
+    :param year: The year to fetch data for
+    :param month: The month to fetch data for (1-12)
+    :return: Tuple containing list of heart rate data dictionaries and output filename
+
+    Each dictionary in the results list contains:
+        - timestamp: DateTime of the heart rate reading
+        - heartrate: Heart rate value in beats per minute
+    """
     filename = f"hr{year}{month:02d}.csv"
     results = []
     date_list = get_days_of_month(month, year)
@@ -153,6 +206,16 @@ def fetch_hr_data(api, year, month):
 
 
 def get_days_of_month(month, year):
+    """
+    Generate a list of all days in the specified month.
+
+    Creates a list of datetime.date objects for each day in the given month,
+    up to either the last day of the month or today's date (whichever is earlier).
+
+    :param month: The month (1-12)
+    :param year: The year
+    :return: List of date objects representing each day in the month range
+    """
     today = datetime.date.today()
     last_day_of_month = calendar.monthrange(year, month)[1]
     end_of_month = datetime.date(year, month, last_day_of_month)
@@ -169,6 +232,17 @@ def get_days_of_month(month, year):
 
 
 def write_data(data, filename, fieldnames):
+    """
+    Write data to a CSV file.
+
+    Creates a CSV file with the specified fieldnames and writes all data rows.
+    Any extra fields in the data dictionaries that don't match fieldnames are ignored.
+
+    :param data: List of dictionaries containing the data to write
+    :param filename: Name of the output CSV file
+    :param fieldnames: List of field names to use as CSV headers
+    :raises GarmindownloaderException: If file writing fails due to I/O or CSV errors
+    """
     try:
         with open(filename, "w", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(
@@ -181,6 +255,18 @@ def write_data(data, filename, fieldnames):
 
 
 def fetch_data(year, months, datatype):
+    """
+    Fetch and save Garmin data for specified months and data types.
+
+    Creates an authenticated API session and downloads the requested data types
+    (Body Battery and/or Heart Rate) for all specified months. Each month's data
+    is saved to a separate CSV file.
+
+    :param year: The year to fetch data for
+    :param months: List of months to fetch data for (1-12)
+    :param datatype: List of data types to fetch ('bb' for Body Battery, 'hr' for Heart Rate)
+    :raises GarmindownloaderException: If API session creation or data writing fails
+    """
     api = create_api_session()
 
     for datatype in datatype:
@@ -194,7 +280,12 @@ def fetch_data(year, months, datatype):
 
 
 def main():
-    """Main function."""
+    """
+    Main entry point for the Garmin downloader script.
+
+    Parses command line arguments and initiates the data download process.
+    Errors are caught and printed to stderr.
+    """
     args = parse_command_line_args()
 
     if args.year and args.month:
