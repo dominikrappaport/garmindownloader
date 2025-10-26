@@ -13,12 +13,29 @@ data per request, the script automatically generates a separate CSV file for eac
 
 ## Installation
 
-To use my little tool for yourself you need to clone the repository and install the dependencies.
+The garmindownloader is distributed as a Python package. Several installation methods are available.
+
+### Using pip
+
+Executing `pip` installs the package in your current Python environment. Global installation was once possible, but
+modern Linux distributions no longer permit this approach.
 
 ```bash
-git clone https://github.com/dominikrappaport/garmindownloader.git
-cd garmindownloader
-uv sync
+pip install garmindownloader
+```
+
+### Using pipx or uv
+
+Both `pipx` and `uv` enable global tool installation. The package can be installed as follows:
+
+```bash
+pipx install garmindownloader
+```
+
+or
+
+```bash
+uv tools install garmindownloader
 ```
 
 These steps assume you are using [uv](https://github.com/astral-sh/uv) as your package and project manager.
@@ -31,7 +48,7 @@ First of all you need to create an authentication token for Garmin Connect. That
 authenticate script.
 
 ```bash
-uv run authenticate.py
+garminauthenticate
 ```
 
 You need to enter your Garmin Connect credentials and the script will generate a token and save it in the
@@ -41,15 +58,15 @@ Once that is done the script can be run as follows. You specify a year and a mon
 if you want Body Battery data or heart rate data (or both).
 
 ```bash
-uv run downloader.py <year> <month(s)> --datatype <datatype>
+garmindownloader <year> <month(s)> --datatype <datatype>
 ```
 
 Examples:
 
 ```bash
-uv run downloader.py --datatype hr 2025 9
-uv run downloader.py --datatype bb,hr 2025 7-8
-uv run downloader.py --datatype hr 2025 1
+garmindownloader --datatype hr 2025 9
+garmindownloader --datatype bb,hr 2025 7-8
+garmindownloader --datatype hr 2025 1
 ```
 
 The script generates for each month a separate CSV file. For Body Battery, the files are names `bb<year><month>.csv`.
