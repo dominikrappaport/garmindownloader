@@ -35,7 +35,7 @@ pipx install garmindownloader
 or
 
 ```bash
-uv tools install garmindownloader
+uv tool install garmindownloader
 ```
 
 These steps assume you are using [uv](https://github.com/astral-sh/uv) as your package and project manager.
