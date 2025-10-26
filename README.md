@@ -41,15 +41,15 @@ Once that is done the script can be run as follows. You specify a year and a mon
 if you want Body Battery data or heart rate data (or both).
 
 ```bash
-uv run garmindownloader.py <year> <month(s)> --datatype <datatype>
+uv run downloader.py <year> <month(s)> --datatype <datatype>
 ```
 
 Examples:
 
 ```bash
-uv run garmindownloader.py --datatype hr 2025 9
-uv run garmindownloader.py --datatype bb,hr 2025 7-8
-uv run garmindownloader.py --datatype hr 2025 1
+uv run downloader.py --datatype hr 2025 9
+uv run downloader.py --datatype bb,hr 2025 7-8
+uv run downloader.py --datatype hr 2025 1
 ```
 
 The script generates for each month a separate CSV file. For Body Battery, the files are names `bb<year><month>.csv`.
