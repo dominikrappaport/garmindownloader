@@ -5,30 +5,21 @@ The data is downloaded in chunks of one month (the longest time period supported
 saved in one CSV file per month.
 """
 
-import argparse
-import sys
-import garminconnect
-import os
-import datetime
-import csv
 import calendar
+import csv
+import datetime
+import os
+import sys
+
+import garminconnect
 from garth.exc import GarthHTTPError
 
-GARMIN_TOKEN_DIR = "~/.garth"
-GARMIN_TOKEN_ENV = "GARMINTOKENS"
-DATATYPE_TO_FUNCTION = {
-    "bb": {
-        "func": "fetch_bb_data",
-        "fieldnames": ["date", "charged", "drained", "max", "min"],
-    },
-    "hr": {"func": "fetch_hr_data", "fieldnames": ["timestamp", "heartrate"]},
-}
-
-
-class GarmindownloaderException(Exception):
-    """Exception raised for errors in the Garmin downloader module."""
-
-    pass
+from garmindownloader.constants import (
+    DATATYPE_TO_FUNCTION,
+    GARMIN_TOKEN_DIR,
+    GARMIN_TOKEN_ENV,
+)
+from garmindownloader.exceptions import GarmindownloaderException
 
 
 def create_api_session():
@@ -51,74 +42,6 @@ def create_api_session():
         return garmin
     except (GarthHTTPError, AssertionError) as exc:
         raise (GarmindownloaderException(f"Error: {exc}")) from exc
-
-
-def parse_months(month_str):
-    """
-    Parse the month parameter.
-
-    :param month_str: The month parameter
-    :return: List of months
-
-    :exception argparse.ArgumentTypeError: If the month parameter is invalid
-    """
-    if "-" in month_str:
-        # Range of months
-        try:
-            start_month, end_month = map(int, month_str.split("-"))
-            if start_month < 1 or end_month > 12 or start_month > end_month:
-                raise ValueError("Invalid month range")
-
-            return list(range(start_month, end_month + 1))
-        except ValueError as e:
-            raise argparse.ArgumentTypeError(f"Invalid month range: {e}")
-    else:
-        # Single month
-        try:
-            month = int(month_str)
-            if month < 1 or month > 12:
-                raise ValueError("Month must be between 1 and 12")
-
-            return [month]
-        except ValueError as exc:
-            raise argparse.ArgumentTypeError(
-                "Month must be a number between 1 and 12"
-            ) from exc
-
-
-def parse_command_line_args():
-    """
-    Parse and validate command line arguments.
-
-    Parses command line arguments for year, month(s), and data type(s) to download.
-    Validates that all datatypes are valid choices (bb or hr).
-
-    :return: Parsed command line arguments with year, month list, and datatype list
-    :raises SystemExit: If invalid arguments are provided (via argparse.ArgumentParser.error)
-    """
-    parser = argparse.ArgumentParser(description="Process year and month parameters.")
-    parser.add_argument("year", type=int, help="The year (e.g., 2024).")
-    parser.add_argument(
-        "month",
-        type=parse_months,
-        help="Month or range of months (e.g., 5 or 5-8).",
-    )
-    parser.add_argument(
-        "--datatype",
-        required=True,
-        type=lambda s: [item.strip() for item in s.split(",")],
-        help="Data types to download: bb (Body Battery) and/or hr (Heart Rate). Example: --datatype bb,hr",
-    )
-
-    args = parser.parse_args()
-
-    # Validate that all values are valid choices
-    valid_choices = ["bb", "hr"]
-    for dtype in args.datatype:
-        if dtype not in valid_choices:
-            parser.error(f"Invalid datatype '{dtype}'. Choose from {valid_choices}")
-
-    return args
 
 
 def fetch_bb_data(api, year, month):
@@ -221,7 +144,7 @@ def get_days_of_month(month, year):
     end_of_month = datetime.date(year, month, last_day_of_month)
 
     from_date = datetime.date(year, month, 1)
-    to_date = end_of_month if end_of_month < today else today
+    to_date = min(today, end_of_month)
 
     # Generate list of all days including end date
     date_list = [
@@ -250,7 +173,7 @@ def write_data(data, filename, fieldnames):
             )
             writer.writeheader()
             writer.writerows(data)
-    except (IOError, csv.Error) as exc:
+    except (OSError, csv.Error) as exc:
         raise (GarmindownloaderException(f"Error writing CSV file: {exc}")) from exc
 
 
@@ -277,23 +200,3 @@ def fetch_data(year, months, datatype):
             data, filename = getattr(sys.modules[__name__], func)(api, year, month)
 
             write_data(data, filename, fieldnames)
-
-
-def main():
-    """
-    Main entry point for the Garmin downloader script.
-
-    Parses command line arguments and initiates the data download process.
-    Errors are caught and printed to stderr.
-    """
-    args = parse_command_line_args()
-
-    if args.year and args.month:
-        try:
-            fetch_data(args.year, args.month, args.datatype)
-        except Exception as exc:
-            print(exc, file=sys.stderr)
-
-
-if __name__ == "__main__":
-    main()

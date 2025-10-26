@@ -2,28 +2,30 @@
 Unit tests for the garmindownloader module.
 """
 
-import pytest
-import sys
-import datetime
-import csv
-import os
-from unittest.mock import Mock, patch, mock_open, MagicMock
-from io import StringIO
 import argparse
+import csv
+import datetime
+import os
+from io import StringIO
+from unittest.mock import Mock, mock_open, patch
 
-from garmindownloader import (
+import pytest
+
+from garmindownloader.cli import (
+    main,
+    parse_command_line_args,
+    parse_months,
+)
+from garmindownloader.downloader import (
+    GARMIN_TOKEN_DIR,
+    GARMIN_TOKEN_ENV,
     GarmindownloaderException,
     create_api_session,
-    parse_months,
-    parse_command_line_args,
     fetch_bb_data,
+    fetch_data,
     fetch_hr_data,
     get_days_of_month,
     write_data,
-    fetch_data,
-    main,
-    GARMIN_TOKEN_DIR,
-    GARMIN_TOKEN_ENV,
 )
 
 
@@ -31,7 +33,7 @@ class TestCreateApiSession:
     """Tests for create_api_session function."""
 
     @patch.dict(os.environ, {}, clear=True)
-    @patch("garmindownloader.garminconnect.Garmin")
+    @patch("garmindownloader.downloader.garminconnect.Garmin")
     def test_create_api_session_default_token_dir(self, mock_garmin_class):
         """Test API session creation with default token directory."""
         mock_garmin_instance = Mock()
@@ -44,7 +46,7 @@ class TestCreateApiSession:
         assert result == mock_garmin_instance
 
     @patch.dict(os.environ, {GARMIN_TOKEN_ENV: "/custom/path"})
-    @patch("garmindownloader.garminconnect.Garmin")
+    @patch("garmindownloader.downloader.garminconnect.Garmin")
     def test_create_api_session_custom_token_dir(self, mock_garmin_class):
         """Test API session creation with custom token directory from environment."""
         mock_garmin_instance = Mock()
@@ -55,7 +57,7 @@ class TestCreateApiSession:
         mock_garmin_instance.login.assert_called_once_with("/custom/path")
         assert result == mock_garmin_instance
 
-    @patch("garmindownloader.garminconnect.Garmin")
+    @patch("garmindownloader.downloader.garminconnect.Garmin")
     def test_create_api_session_assertion_error(self, mock_garmin_class):
         """Test API session creation handles AssertionError."""
         mock_garmin_instance = Mock()
@@ -246,7 +248,7 @@ class TestFetchBbData:
 class TestFetchHrData:
     """Tests for fetch_hr_data function."""
 
-    @patch("garmindownloader.get_days_of_month")
+    @patch("garmindownloader.downloader.get_days_of_month")
     def test_fetch_hr_data_normal_case(self, mock_get_days):
         """Test fetching heart rate data with normal values."""
         mock_get_days.return_value = [
@@ -268,7 +270,7 @@ class TestFetchHrData:
         assert results[1]["heartrate"] == 65
         assert results[2]["heartrate"] == 70
 
-    @patch("garmindownloader.get_days_of_month")
+    @patch("garmindownloader.downloader.get_days_of_month")
     def test_fetch_hr_data_empty_values(self, mock_get_days):
         """Test fetching heart rate data with no values."""
         mock_get_days.return_value = [datetime.date(2024, 5, 1)]
@@ -281,7 +283,7 @@ class TestFetchHrData:
         assert filename == "hr202405.csv"
         assert len(results) == 0
 
-    @patch("garmindownloader.get_days_of_month")
+    @patch("garmindownloader.downloader.get_days_of_month")
     def test_fetch_hr_data_empty_list(self, mock_get_days):
         """Test fetching heart rate data with empty list."""
         mock_get_days.return_value = [datetime.date(2024, 5, 1)]
@@ -298,7 +300,7 @@ class TestFetchHrData:
 class TestGetDaysOfMonth:
     """Tests for get_days_of_month function."""
 
-    @patch("garmindownloader.datetime")
+    @patch("garmindownloader.downloader.datetime")
     def test_get_days_of_month_complete_month_in_past(self, mock_datetime):
         """Test getting days for a complete month in the past."""
         mock_datetime.date.today.return_value = datetime.date(2024, 6, 15)
@@ -311,7 +313,7 @@ class TestGetDaysOfMonth:
         assert result[0] == datetime.date(2024, 5, 1)
         assert result[-1] == datetime.date(2024, 5, 31)
 
-    @patch("garmindownloader.datetime")
+    @patch("garmindownloader.downloader.datetime")
     def test_get_days_of_month_current_month_partial(self, mock_datetime):
         """Test getting days for current month up to today."""
         mock_datetime.date.today.return_value = datetime.date(2024, 5, 15)
@@ -324,7 +326,7 @@ class TestGetDaysOfMonth:
         assert result[0] == datetime.date(2024, 5, 1)
         assert result[-1] == datetime.date(2024, 5, 15)
 
-    @patch("garmindownloader.datetime")
+    @patch("garmindownloader.downloader.datetime")
     def test_get_days_of_month_february_leap_year(self, mock_datetime):
         """Test getting days for February in a leap year."""
         mock_datetime.date.today.return_value = datetime.date(2024, 6, 1)
@@ -336,7 +338,7 @@ class TestGetDaysOfMonth:
         assert len(result) == 29
         assert result[-1] == datetime.date(2024, 2, 29)
 
-    @patch("garmindownloader.datetime")
+    @patch("garmindownloader.downloader.datetime")
     def test_get_days_of_month_february_non_leap_year(self, mock_datetime):
         """Test getting days for February in a non-leap year."""
         mock_datetime.date.today.return_value = datetime.date(2023, 6, 1)
@@ -348,7 +350,7 @@ class TestGetDaysOfMonth:
         assert len(result) == 28
         assert result[-1] == datetime.date(2023, 2, 28)
 
-    @patch("garmindownloader.datetime")
+    @patch("garmindownloader.downloader.datetime")
     def test_get_days_of_month_single_day(self, mock_datetime):
         """Test getting days when today is the first day of month."""
         mock_datetime.date.today.return_value = datetime.date(2024, 5, 1)
@@ -406,7 +408,7 @@ class TestWriteData:
         data = [{"field1": "value1"}]
         fieldnames = ["field1"]
 
-        with patch("builtins.open", side_effect=IOError("Disk full")):
+        with patch("builtins.open", side_effect=OSError("Disk full")):
             with pytest.raises(
                 GarmindownloaderException, match="Error writing CSV file"
             ):
@@ -433,9 +435,9 @@ class TestWriteData:
 class TestFetchData:
     """Tests for fetch_data function."""
 
-    @patch("garmindownloader.create_api_session")
-    @patch("garmindownloader.fetch_bb_data")
-    @patch("garmindownloader.write_data")
+    @patch("garmindownloader.downloader.create_api_session")
+    @patch("garmindownloader.downloader.fetch_bb_data")
+    @patch("garmindownloader.downloader.write_data")
     def test_fetch_data_single_month_single_type(
         self, mock_write, mock_fetch_bb, mock_create_api
     ):
@@ -454,9 +456,9 @@ class TestFetchData:
             ["date", "charged", "drained", "max", "min"],
         )
 
-    @patch("garmindownloader.create_api_session")
-    @patch("garmindownloader.fetch_hr_data")
-    @patch("garmindownloader.write_data")
+    @patch("garmindownloader.downloader.create_api_session")
+    @patch("garmindownloader.downloader.fetch_hr_data")
+    @patch("garmindownloader.downloader.write_data")
     def test_fetch_data_multiple_months(
         self, mock_write, mock_fetch_hr, mock_create_api
     ):
@@ -473,10 +475,10 @@ class TestFetchData:
         assert mock_fetch_hr.call_count == 2
         assert mock_write.call_count == 2
 
-    @patch("garmindownloader.create_api_session")
-    @patch("garmindownloader.fetch_bb_data")
-    @patch("garmindownloader.fetch_hr_data")
-    @patch("garmindownloader.write_data")
+    @patch("garmindownloader.downloader.create_api_session")
+    @patch("garmindownloader.downloader.fetch_bb_data")
+    @patch("garmindownloader.downloader.fetch_hr_data")
+    @patch("garmindownloader.downloader.write_data")
     def test_fetch_data_multiple_datatypes(
         self, mock_write, mock_fetch_hr, mock_fetch_bb, mock_create_api
     ):
@@ -496,8 +498,8 @@ class TestFetchData:
 class TestMain:
     """Tests for main function."""
 
-    @patch("garmindownloader.parse_command_line_args")
-    @patch("garmindownloader.fetch_data")
+    @patch("garmindownloader.cli.parse_command_line_args")
+    @patch("garmindownloader.cli.fetch_data")
     def test_main_success(self, mock_fetch_data, mock_parse_args):
         """Test main function with successful execution."""
         mock_args = Mock()
@@ -511,8 +513,8 @@ class TestMain:
         mock_parse_args.assert_called_once()
         mock_fetch_data.assert_called_once_with(2024, [5], ["bb"])
 
-    @patch("garmindownloader.parse_command_line_args")
-    @patch("garmindownloader.fetch_data")
+    @patch("garmindownloader.cli.parse_command_line_args")
+    @patch("garmindownloader.cli.fetch_data")
     @patch("sys.stderr", new_callable=StringIO)
     def test_main_exception_handling(
         self, mock_stderr, mock_fetch_data, mock_parse_args
@@ -529,8 +531,8 @@ class TestMain:
 
         assert "Test error" in mock_stderr.getvalue()
 
-    @patch("garmindownloader.parse_command_line_args")
-    @patch("garmindownloader.fetch_data")
+    @patch("garmindownloader.cli.parse_command_line_args")
+    @patch("garmindownloader.cli.fetch_data")
     def test_main_no_year_or_month(self, mock_fetch_data, mock_parse_args):
         """Test main function when year or month is missing."""
         mock_args = Mock()
