@@ -19,28 +19,35 @@ def parse_months(month_str):
 
     :exception argparse.ArgumentTypeError: If the month parameter is invalid
     """
+    month_list = None
+
     if "-" in month_str:
         # Range of months
         try:
             start_month, end_month = map(int, month_str.split("-"))
-            if start_month < 1 or end_month > 12 or start_month > end_month:
-                raise ValueError("Invalid month range")
-
-            return list(range(start_month, end_month + 1))
         except ValueError as e:
-            raise argparse.ArgumentTypeError(f"Invalid month range: {e}")
+            msg = "Invalid month range"
+            raise argparse.ArgumentTypeError(msg) from e
+
+        if start_month < 1 or end_month > 12 or start_month > end_month:
+            msg = "Invalid month range"
+            raise argparse.ArgumentTypeError(msg)
+
+        month_list = list(range(start_month, end_month + 1))
     else:
         # Single month
         try:
             month = int(month_str)
-            if month < 1 or month > 12:
-                raise ValueError("Month must be between 1 and 12")
+        except ValueError as e:
+            msg = "Month must be a number between 1 and 12"
+            raise argparse.ArgumentTypeError(msg) from e
 
-            return [month]
-        except ValueError as exc:
-            raise argparse.ArgumentTypeError(
-                "Month must be a number between 1 and 12"
-            ) from exc
+        if month < 1 or month > 12:
+            raise argparse.ArgumentTypeError("Month must be a number between 1 and 12")
+
+        month_list = [month]
+
+    return month_list
 
 
 def parse_command_line_args():
