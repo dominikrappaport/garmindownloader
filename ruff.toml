@@ -87,6 +87,15 @@ lint.ignore = [
     "PLR6301",
     "PLC1901",
     "PLR2004",
+    "RUF001",
+    "INP001",
+    "BLE001",
+    "DOC201",
+    "S105",
+    "DOC501",
+    "TRY300",
+    "DTZ006",
+    "DTZ011",
 
 ]
 preview = true

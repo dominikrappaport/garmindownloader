@@ -22,7 +22,7 @@ from garmindownloader.downloader import (
     get_days_of_month,
     write_data,
 )
-from garmindownloader.exceptions import GarmindownloaderException
+from garmindownloader.exceptions import GarmindownloaderError
 
 __all__ = [
     "DATATYPE_TO_FUNCTION",
@@ -30,7 +30,7 @@ __all__ = [
     "GARMIN_TOKEN_DIR",
     "GARMIN_TOKEN_ENV",
     # Exceptions
-    "GarmindownloaderException",
+    "GarmindownloaderError",
     # Core downloader functions
     "create_api_session",
     "fetch_bb_data",

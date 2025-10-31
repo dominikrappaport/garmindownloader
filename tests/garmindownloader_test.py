@@ -19,7 +19,7 @@ from garmindownloader.cli import (
 from garmindownloader.downloader import (
     GARMIN_TOKEN_DIR,
     GARMIN_TOKEN_ENV,
-    GarmindownloaderException,
+    GarmindownloaderError,
     create_api_session,
     fetch_bb_data,
     fetch_data,
@@ -64,7 +64,7 @@ class TestCreateApiSession:
         mock_garmin_class.return_value = mock_garmin_instance
         mock_garmin_instance.login.side_effect = AssertionError("Auth failed")
 
-        with pytest.raises(GarmindownloaderException, match="Error: Auth failed"):
+        with pytest.raises(GarmindownloaderError, match="Error: Auth failed"):
             create_api_session()
 
 
@@ -409,9 +409,7 @@ class TestWriteData:
         fieldnames = ["field1"]
 
         with patch("builtins.open", side_effect=OSError("Disk full")):
-            with pytest.raises(
-                GarmindownloaderException, match="Error writing CSV file"
-            ):
+            with pytest.raises(GarmindownloaderError, match="Error writing CSV file"):
                 write_data(data, "test.csv", fieldnames)
 
     def test_write_data_csv_error(self):
@@ -427,7 +425,7 @@ class TestWriteData:
                 mock_writer.writerows.side_effect = csv.Error("CSV error")
 
                 with pytest.raises(
-                    GarmindownloaderException, match="Error writing CSV file"
+                    GarmindownloaderError, match="Error writing CSV file"
                 ):
                     write_data(data, "test.csv", fieldnames)
 

@@ -1,6 +1,4 @@
-"""
-Constants used throughout the Garmin downloader library.
-"""
+"""Constants used throughout the Garmin downloader library."""
 
 GARMIN_TOKEN_DIR = "~/.garth"
 GARMIN_TOKEN_ENV = "GARMINTOKENS"

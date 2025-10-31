@@ -19,7 +19,7 @@ from garmindownloader.constants import (
     GARMIN_TOKEN_DIR,
     GARMIN_TOKEN_ENV,
 )
-from garmindownloader.exceptions import GarmindownloaderException
+from garmindownloader.exceptions import GarmindownloaderError
 
 
 def create_api_session():
@@ -31,7 +31,7 @@ def create_api_session():
     GARMINTOKENS environment variable, or defaults to ~/.garth if not set.
 
     :return: Authenticated Garmin Connect API object
-    :raises GarmindownloaderException: If authentication fails or HTTP errors occur
+    :raises GarmindownloaderError: If authentication fails or HTTP errors occur
     """
     token_store = os.getenv(GARMIN_TOKEN_ENV) or GARMIN_TOKEN_DIR
 
@@ -41,7 +41,8 @@ def create_api_session():
 
         return garmin
     except (GarthHTTPError, AssertionError) as exc:
-        raise (GarmindownloaderException(f"Error: {exc}")) from exc
+        msg = f"Error: {exc}"
+        raise (GarmindownloaderError(msg)) from exc
 
 
 def fetch_bb_data(api, year, month):
@@ -164,7 +165,7 @@ def write_data(data, filename, fieldnames):
     :param data: List of dictionaries containing the data to write
     :param filename: Name of the output CSV file
     :param fieldnames: List of field names to use as CSV headers
-    :raises GarmindownloaderException: If file writing fails due to I/O or CSV errors
+    :raises GarmindownloaderError: If file writing fails due to I/O or CSV errors
     """
     try:
         with open(filename, "w", encoding="utf-8") as csvfile:
@@ -174,7 +175,8 @@ def write_data(data, filename, fieldnames):
             writer.writeheader()
             writer.writerows(data)
     except (OSError, csv.Error) as exc:
-        raise (GarmindownloaderException(f"Error writing CSV file: {exc}")) from exc
+        msg = f"Error writing CSV file: {exc}"
+        raise (GarmindownloaderError(msg)) from exc
 
 
 def fetch_data(year, months, datatype):
@@ -188,13 +190,13 @@ def fetch_data(year, months, datatype):
     :param year: The year to fetch data for
     :param months: List of months to fetch data for (1-12)
     :param datatype: List of data types to fetch ('bb' for Body Battery, 'hr' for Heart Rate)
-    :raises GarmindownloaderException: If API session creation or data writing fails
+    :raises GarmindownloaderError: If API session creation or data writing fails
     """
     api = create_api_session()
 
-    for datatype in datatype:
-        func = DATATYPE_TO_FUNCTION[datatype]["func"]
-        fieldnames = DATATYPE_TO_FUNCTION[datatype]["fieldnames"]
+    for dt in datatype:
+        func = DATATYPE_TO_FUNCTION[dt]["func"]
+        fieldnames = DATATYPE_TO_FUNCTION[dt]["fieldnames"]
 
         for month in months:
             data, filename = getattr(sys.modules[__name__], func)(api, year, month)
